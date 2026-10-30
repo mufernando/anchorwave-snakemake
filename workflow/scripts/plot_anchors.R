@@ -30,6 +30,12 @@ dt[, referenceEnd   := as.numeric(referenceEnd)]
 dt[, queryStart     := as.numeric(queryStart)]
 dt[, queryEnd       := as.numeric(queryEnd)]
 
+# Scaffold-level assemblies would otherwise produce thousands of facets
+max_chroms <- 30
+top_ref   <- dt[, .N, by = referenceChromosome][order(-N)][seq_len(min(.N, max_chroms)), referenceChromosome]
+top_query <- dt[, .N, by = queryChromosome][order(-N)][seq_len(min(.N, max_chroms)), queryChromosome]
+dt <- dt[referenceChromosome %in% top_ref & queryChromosome %in% top_query]
+
 # Midpoints for plotting
 dt[, ref_mid   := (referenceStart + referenceEnd) / 2]
 dt[, query_mid := (queryStart + queryEnd) / 2]

@@ -1,0 +1,10 @@
+# Snakemake profile for the UC Davis Hive cluster (Slurm).
+# Usage: snakemake --profile profiles/hive
+executor: slurm
+jobs: 10
+# Quobyte is a network filesystem: outputs written on compute nodes can take a while to appear
+latency-wait: 60
+default-resources:
+  # publicgrp (free tier) caps jobs on `high` at 8 CPUs / 128 GB; use your PI group's account for more
+  - slurm_account=genome-center-grp
+  - slurm_partition=high

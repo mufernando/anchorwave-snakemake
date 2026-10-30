@@ -26,33 +26,30 @@ def summarize_maf(maf_path, ref_lengths):
     ref_gap_bp = 0
     target_gap_bp = 0
 
+    def flush(block_lines):
+        nonlocal ref_aligned_bp, identical_bp, ref_gap_bp, target_gap_bp
+        stats = _process_block(block_lines)
+        ref_aligned_bp += stats["ref_aligned"]
+        identical_bp += stats["identical"]
+        ref_gap_bp += stats["ref_gaps"]
+        target_gap_bp += stats["target_gaps"]
+
     with open(maf_path) as fh:
         block_lines = []
         for line in fh:
             if line.startswith("a"):
-                # Start of a new alignment block
                 if block_lines:
-                    _process_block(block_lines, ref_aligned_bp, identical_bp,
-                                   ref_gap_bp, target_gap_bp)
+                    flush(block_lines)
                 block_lines = []
                 n_blocks += 1
             elif line.startswith("s"):
                 block_lines.append(line)
             elif line.strip() == "" and block_lines:
-                stats = _process_block(block_lines)
-                ref_aligned_bp += stats["ref_aligned"]
-                identical_bp += stats["identical"]
-                ref_gap_bp += stats["ref_gaps"]
-                target_gap_bp += stats["target_gaps"]
+                flush(block_lines)
                 block_lines = []
 
-        # Handle last block
         if block_lines:
-            stats = _process_block(block_lines)
-            ref_aligned_bp += stats["ref_aligned"]
-            identical_bp += stats["identical"]
-            ref_gap_bp += stats["ref_gaps"]
-            target_gap_bp += stats["target_gaps"]
+            flush(block_lines)
 
     ref_total = sum(ref_lengths.values())
     identity = identical_bp / ref_aligned_bp if ref_aligned_bp > 0 else 0.0

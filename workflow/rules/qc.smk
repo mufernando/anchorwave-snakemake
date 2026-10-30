@@ -28,7 +28,7 @@ rule summarize_maf:
     threads: res("summarize_maf", "threads", 1)
     resources:
         mem_mb=res("summarize_maf", "mem_mb", 8192),
-        runtime=res("summarize_maf", "runtime", 30),
+        runtime=res("summarize_maf", "runtime", 120),
     wildcard_constraints:
         target="|".join(TARGET_NAMES),
     script:
@@ -46,6 +46,10 @@ rule aggregate_summary:
         tsv=f"{OUTDIR}/summary.tsv",
     log:
         "logs/aggregate_summary.log",
+    threads: res("aggregate_summary", "threads", 1)
+    resources:
+        mem_mb=res("aggregate_summary", "mem_mb", 2048),
+        runtime=res("aggregate_summary", "runtime", 10),
     run:
         import pandas as pd
 

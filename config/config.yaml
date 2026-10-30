@@ -59,4 +59,8 @@ resources:
   summarize_maf:
     threads: 1
     mem_mb: 8192
-    runtime: 30
+    runtime: 120         # pure-Python pass over multi-Gb MAFs
+  aggregate_summary:
+    threads: 1
+    mem_mb: 2048
+    runtime: 10

@@ -22,13 +22,11 @@ targetN FASTA ──────────└─ minimap2 (targetN) ───�
 
 ### 1. Install the conda environment
 
-On Hive, build the env inside a job (not on the login node):
-
 ```bash
-srun -A <ACCOUNT> -p high -t 1:00:00 -c 2 --mem=16G --pty bash -l
-module load conda
-mamba env create -p /quobyte/<PIGRP>/$USER/envs/anchorwave -f environment.yaml
+mamba env create -p /path/to/envs/anchorwave -f environment.yaml
 ```
+
+On a cluster, follow its profile's instructions instead (see [Cluster profiles](#cluster-profiles)).
 
 ### 2. Edit the configuration
 
@@ -40,6 +38,9 @@ reference:
   fasta: "/path/to/B73.fa"
   gff: "/path/to/B73.gff3"
 ```
+
+The GFF must be uncompressed, and its seqids must match the first word of each FASTA header
+(headers are trimmed to the first word during staging).
 
 **`config/targets.tsv`** — one row per target genome:
 
@@ -58,35 +59,19 @@ Example:
 sample	fasta	mode	proali_R	proali_Q	extra
 Mo17	/data/Mo17.fa.gz	genoAli
 B97	/data/B97.fa	genoAli
-Sbicolor	/data/Sbicolor_v3.fa	proali	2	1	-ns
+Sbicolor	/data/Sbicolor_v3.fa	proali	1	2
 ```
 
 ### 3. Run the pipeline
 
-Activate the environment and run with the Slurm executor:
+From the repository root, with the environment activated:
 
 ```bash
-conda activate /quobyte/<PIGRP>/$USER/envs/anchorwave
-
-# Dry run to check the DAG
-snakemake -n
-
-# Run with Slurm (inside tmux on the login node)
-snakemake --executor slurm \
-    --default-resources slurm_account=<ACCOUNT> slurm_partition=high \
-    --jobs 10
+snakemake -n                         # dry run to check the DAG
+snakemake --profile profiles/<cluster>
 ```
 
-Or submit the controller itself as a job:
-
-```bash
-sbatch --account=<ACCOUNT> --partition=high --time=7-00:00:00 \
-    --cpus-per-task=1 --mem=4G --job-name=anchorwave-smk \
-    --output=snakemake-%j.out --error=snakemake-%j.err \
-    --wrap "snakemake --executor slurm \
-        --default-resources slurm_account=<ACCOUNT> slurm_partition=high \
-        --jobs 10"
-```
+Rule logs go to `logs/` in the working directory, not under `results/`.
 
 ### 4. Outputs
 
@@ -110,8 +95,8 @@ results/
 
 Each rule has default `threads`, `mem_mb`, and `runtime` values in `config/config.yaml`
 under `resources:`. Override them there or via `--default-resources` / `--set-resources`
-on the command line. The Slurm account and partition are **not** set by the pipeline — pass
-them via `--default-resources` or a Snakemake profile.
+on the command line. The Slurm account and partition are **not** set by the pipeline; they
+come from the cluster profile.
 
 | Rule | Threads | Memory | Time |
 |---|---|---|---|
@@ -121,9 +106,18 @@ them via `--default-resources` or a Snakemake profile.
 | minimap2_cds | 8 | 32 GB | 6 h |
 | anchorwave_align | 4 | 128 GB | 3 days |
 | plot_anchors | 1 | 8 GB | 30 min |
-| summarize_maf | 1 | 8 GB | 30 min |
+| summarize_maf | 1 | 8 GB | 2 h |
+| aggregate_summary | 1 | 2 GB | 10 min |
 
-For very large genomes (>2 Gb), increase `anchorwave_align` memory and time.
+For very large genomes (>2 Gb), increase `anchorwave_align` memory and time, keeping within
+your cluster account's per-job limits.
+
+## Cluster profiles
+
+Cluster-specific settings (executor, Slurm account and partition, filesystem latency) live in
+`profiles/<cluster>/`:
+
+- [`profiles/hive/`](profiles/hive/README.md): UC Davis Hive
 
 ## Alignment modes
 
@@ -131,3 +125,8 @@ For very large genomes (>2 Gb), increase `anchorwave_align` memory and time.
   Passes `-IV` by default to allow inversions (configurable via `genoali.inversions`).
 - **proali**: for targets with whole-genome duplication or different ploidy relative to
   the reference. Requires `proali_R` and `proali_Q` in the sample sheet.
+
+## Acknowledgments
+
+Claude Opus 5.5 (Anthropic) was used in the development of the pipeline.
+

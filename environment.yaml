@@ -1,8 +1,7 @@
 name: anchorwave
 channels:
-  - bioconda
   - conda-forge
-  - defaults
+  - bioconda
 dependencies:
   - anchorwave>=1.2.2
   - minimap2>=2.26
