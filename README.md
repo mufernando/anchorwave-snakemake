@@ -62,7 +62,19 @@ B97	/data/B97.fa	genoAli
 Sbicolor	/data/Sbicolor_v3.fa	proali	1	2
 ```
 
-### 3. Run the pipeline
+### 3. Check the CDS dotplots and choose each target's mode
+
+Before the long AnchorWave runs, map the CDS and plot one dotplot per target:
+
+```bash
+snakemake dotplots --profile profiles/<cluster>
+```
+
+This runs staging, `gff2seq`, and `minimap2` only, and writes `results/qc/{target}.cds_dotplot.png`.
+Each point is one reference CDS at its primary hit in the reference (x) and the target (y).
+Use the plots to set `mode` in `config/targets.tsv` (see [Alignment modes](#alignment-modes)).
+
+### 4. Run the pipeline
 
 From the repository root, with the environment activated:
 
@@ -71,9 +83,11 @@ snakemake -n                         # dry run to check the DAG
 snakemake --profile profiles/<cluster>
 ```
 
+Outputs from the `dotplots` step are reused, not recomputed.
+
 Rule logs go to `logs/` in the working directory, not under `results/`.
 
-### 4. Outputs
+### 5. Outputs
 
 ```
 results/
@@ -86,6 +100,7 @@ results/
 │   ├── {target}.f.maf      # Fragmented alignment
 │   └── {target}.anchors    # Collinear anchors
 ├── qc/
+│   ├── {target}.cds_dotplot.png    # Pre-alignment CDS dotplot (from minimap2)
 │   ├── {target}.anchors.png    # Anchor dotplot
 │   └── {target}.summary.tsv   # Per-target alignment stats
 └── summary.tsv         # Combined summary table (all targets)
@@ -104,7 +119,8 @@ come from the cluster profile.
 | faidx | 1 | 2 GB | 30 min |
 | gff2seq | 1 | 8 GB | 1 h |
 | minimap2_cds | 8 | 32 GB | 6 h |
-| anchorwave_align | 4 | 128 GB | 3 days |
+| anchorwave_align | 16 | 248 GB | 3 days |
+| plot_cds_dotplot | 1 | 8 GB | 30 min |
 | plot_anchors | 1 | 8 GB | 30 min |
 | summarize_maf | 1 | 8 GB | 2 h |
 | aggregate_summary | 1 | 2 GB | 10 min |
@@ -120,6 +136,17 @@ Cluster-specific settings (executor, Slurm account and partition, filesystem lat
 - [`profiles/hive/`](profiles/hive/README.md): UC Davis Hive
 
 ## Alignment modes
+
+Choose per target from its CDS dotplot:
+
+- One diagonal per chromosome pair, with inverted (red) segments at most: `genoAli`.
+- Blocks off the diagonal or on another chromosome (translocations), or repeated blocks
+  (duplications, ploidy differences): `proali`.
+
+When in doubt, use `proali`: it handles rearrangements, while `genoAli` assumes collinearity.
+
+The plot uses primary minimap2 hits only. Set `cds_dotplot.min_mapq` in `config/config.yaml` to
+hide multi-copy genes; the default of 0 keeps them, so duplicated blocks stay visible.
 
 - **genoAli**: for genomes collinear with the reference and the same ploidy.
   Passes `-IV` by default to allow inversions (configurable via `genoali.inversions`).

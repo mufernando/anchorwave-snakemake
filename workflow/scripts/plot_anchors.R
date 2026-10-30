@@ -12,8 +12,11 @@ anchors_file <- snakemake@input[["anchors"]]
 out_file     <- snakemake@output[["plot"]]
 
 # AnchorWave .anchors is tab-separated:
-# referenceChromosome  referenceStart  referenceEnd  queryChromosome  queryStart  queryEnd  strand  ...
-dt <- fread(anchors_file, header = TRUE, sep = "\t")
+# refChr  referenceStart  referenceEnd  queryChr  queryStart  queryEnd  strand  gene  blockIndex  score
+# with a leading "#anchorwave ..." command line and "#block begin/end" lines between blocks
+lines <- readLines(anchors_file)
+dt <- fread(text = lines[!startsWith(lines, "#")], header = TRUE, sep = "\t")
+rm(lines)
 
 # Normalize column names (different AnchorWave versions may differ)
 # Use positional fallback if the expected names aren't found
@@ -23,6 +26,9 @@ if (!all(expected %in% names(dt))) {
     # Positional: cols 1-7
     setnames(dt, seq_along(expected), expected)
 }
+
+# "interanchor" rows are the gaps between anchors, not anchors
+if ("gene" %in% names(dt)) dt <- dt[gene != "interanchor"]
 
 # Ensure numeric
 dt[, referenceStart := as.numeric(referenceStart)]

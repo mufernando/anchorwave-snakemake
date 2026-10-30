@@ -1,3 +1,26 @@
+rule plot_cds_dotplot:
+    """Pre-alignment dotplot of reference CDS hits in the reference vs one target."""
+    input:
+        ref_sam=f"{OUTDIR}/sam/{REF_NAME}.sam",
+        target_sam=f"{OUTDIR}/sam/{{target}}.sam",
+        ref_fai=staged_fai(REF_NAME),
+        target_fai=lambda wc: staged_fai(wc.target),
+    output:
+        plot=f"{OUTDIR}/qc/{{target}}.cds_dotplot.png",
+    log:
+        f"logs/plot_cds_dotplot/{{target}}.log",
+    params:
+        min_mapq=config.get("cds_dotplot", {}).get("min_mapq", 0),
+    threads: res("plot_cds_dotplot", "threads", 1)
+    resources:
+        mem_mb=res("plot_cds_dotplot", "mem_mb", 8192),
+        runtime=res("plot_cds_dotplot", "runtime", 30),
+    wildcard_constraints:
+        target="|".join(TARGET_NAMES),
+    script:
+        "../scripts/plot_cds_dotplot.R"
+
+
 rule plot_anchors:
     """Dotplot of collinear anchors for one target vs the reference."""
     input:

@@ -27,6 +27,13 @@ properties:
       args:
         type: string
         default: "-x splice -k 12 -a -p 0.4 -N 20"
+  cds_dotplot:
+    type: object
+    properties:
+      min_mapq:
+        type: integer
+        minimum: 0
+        default: 0
   gff2seq:
     type: object
     properties:

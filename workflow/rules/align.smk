@@ -37,9 +37,9 @@ rule anchorwave_align:
         time=f"logs/anchorwave_align/{{target}}.time",
     params:
         cmd=_anchorwave_cmd,
-    threads: res("anchorwave_align", "threads", 4)
+    threads: res("anchorwave_align", "threads", 16)
     resources:
-        mem_mb=res("anchorwave_align", "mem_mb", 131072),
+        mem_mb=res("anchorwave_align", "mem_mb", 253952),
         runtime=res("anchorwave_align", "runtime", 4320),
     wildcard_constraints:
         target="|".join(TARGET_NAMES),
