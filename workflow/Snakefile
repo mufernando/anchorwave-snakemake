@@ -1,0 +1,34 @@
+"""
+AnchorWave Snakemake pipeline
+Pairwise alignment of N target genomes to one annotated reference.
+"""
+
+configfile: "config/config.yaml"
+
+
+include: "rules/common.smk"
+include: "rules/prep.smk"
+include: "rules/align.smk"
+include: "rules/qc.smk"
+
+
+rule all:
+    """Request every final output: MAFs, dotplots, and the summary table."""
+    input:
+        # MAF + fragmented MAF for every target
+        expand(
+            f"{OUTDIR}/align/{{target}}/{{target}}.maf",
+            target=TARGET_NAMES,
+        ),
+        expand(
+            f"{OUTDIR}/align/{{target}}/{{target}}.f.maf",
+            target=TARGET_NAMES,
+        ),
+        # Anchor dotplots
+        expand(
+            f"{OUTDIR}/qc/{{target}}.anchors.png",
+            target=TARGET_NAMES,
+        ),
+        # Combined summary table
+        f"{OUTDIR}/summary.tsv",
+    default_target: True

@@ -1,0 +1,62 @@
+# ── Reference genome (the one with the GFF annotation) ──────────────────────
+reference:
+  name: "B73"                              # used as the {genome} wildcard for the reference
+  fasta: "/path/to/reference.fa"           # .fa/.fasta, optionally .gz
+  gff: "/path/to/reference.gff3"           # GFF3 annotation of the reference
+
+# ── Targets ─────────────────────────────────────────────────────────────────
+targets: "config/targets.tsv"              # sample sheet; see README for column definitions
+
+# ── Output directory ────────────────────────────────────────────────────────
+outdir: "results"
+
+# ── minimap2 CDS-mapping parameters ────────────────────────────────────────
+# These are AnchorWave's recommended defaults; override only if you know why.
+minimap2:
+  args: "-x splice -k 12 -a -p 0.4 -N 20"
+
+# ── AnchorWave gff2seq extra flags ──────────────────────────────────────────
+gff2seq:
+  extra: ""
+
+# ── AnchorWave genoAli defaults ─────────────────────────────────────────────
+genoali:
+  inversions: true   # pass -IV to allow inversions
+  extra: ""          # extra flags for all genoAli runs
+
+# ── AnchorWave proali defaults ──────────────────────────────────────────────
+proali:
+  extra: ""          # extra flags for all proali runs
+
+# ── Per-rule resource defaults ──────────────────────────────────────────────
+# Override any value here; Slurm account/partition come from your own profile.
+# mem_mb is in megabytes; runtime is in minutes.
+resources:
+  stage_fasta:
+    threads: 1
+    mem_mb: 4096
+    runtime: 60
+  faidx:
+    threads: 1
+    mem_mb: 2048
+    runtime: 30
+  gff2seq:
+    threads: 1
+    mem_mb: 8192
+    runtime: 60
+  minimap2_cds:
+    threads: 8
+    mem_mb: 32768
+    runtime: 360
+  anchorwave_align:
+    threads: 4
+    mem_mb: 131072       # 128 GB — raise for very large genomes
+    runtime: 4320        # 3 days
+  plot_anchors:
+    threads: 1
+    mem_mb: 8192
+    runtime: 30
+  summarize_maf:
+    threads: 1
+    mem_mb: 8192
+    runtime: 30

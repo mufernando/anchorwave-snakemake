@@ -1,0 +1,23 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+description: "Target genome sample sheet"
+type: object
+properties:
+  sample:
+    type: string
+    pattern: "^[A-Za-z0-9_.\\-]+$"
+  fasta:
+    type: string
+  mode:
+    type: string
+    enum: ["genoAli", "proali"]
+    default: "genoAli"
+  proali_R:
+    type: string
+  proali_Q:
+    type: string
+  extra:
+    type: string
+    default: ""
+required:
+  - sample
+  - fasta

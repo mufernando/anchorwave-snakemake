@@ -1,0 +1,16 @@
+name: anchorwave
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - anchorwave>=1.2.2
+  - minimap2>=2.26
+  - samtools>=1.16
+  - snakemake>=8.0
+  - snakemake-executor-plugin-slurm
+  - pandas
+  - python>=3.11
+  - r-base>=4.2
+  - r-ggplot2
+  - r-data.table
