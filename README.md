@@ -1,201 +1,196 @@
 # AnchorWave Snakemake Pipeline
 
-Pairwise whole-genome alignment of **N target genomes** to one **annotated reference** using
-[AnchorWave](https://github.com/baoxingsong/AnchorWave).  Each target is aligned independently,
-and the alignment mode (`genoAli` or `proali`) can be set per target.
+This pipeline aligns one or more target genomes to a single annotated reference genome using
+[AnchorWave](https://github.com/baoxingsong/AnchorWave). Each target is aligned independently.
+You can choose an alignment mode (`genoAli` or `proali`) for each target.
 
-## Overview
-
-```
-reference FASTA + GFF ──┐
-                        ├─ gff2seq ─── CDS FASTA ──┐
-                        ├─ minimap2 (ref) ──────────┤
-                        │                           │
-target₁ FASTA ──────────├─ minimap2 (target₁) ─────├─ anchorwave_align ─┬─ MAF / f.MAF
-target₂ FASTA ──────────├─ minimap2 (target₂) ─────├─ anchorwave_align ─├─ anchor dotplot
-  ...                   │    ...                    │    ...             ├─ summary stats
-targetN FASTA ──────────└─ minimap2 (targetN) ─────└─ anchorwave_align ─┘
-                                                                        └─ results/summary.tsv
-```
+The workflow extracts coding sequences (CDS) from the reference annotation, maps them to the
+reference and targets with minimap2, and uses those mappings to run AnchorWave. A pre-alignment
+CDS dotplot helps you choose the alignment mode; the completed run also creates anchor dotplots
+and summary statistics.
 
 ## Quick start
 
-### 1. Install the conda environment
+Run commands from the repository root. Input FASTA and GFF3 paths must be readable from the
+machine that runs each job (including cluster compute nodes).
+
+### 1. Create the software environment
+
+The environment includes AnchorWave, minimap2, samtools, Snakemake, and the R packages used for
+plots.
 
 ```bash
-mamba env create -p /path/to/envs/anchorwave -f environment.yaml
+mamba env create -f environment.yaml
+conda activate anchorwave
 ```
 
-On a cluster, follow its profile's instructions instead (see [Cluster profiles](#cluster-profiles)).
+Conda can be used in place of mamba. `environment.yaml` specifies minimum package versions;
+for exact package-version reproducibility across machines, use a platform-specific Conda lock
+file.
 
-### 2. Edit the configuration
+### 2. Configure the reference and targets
 
-**`config/config.yaml`** — set the reference genome paths:
+Edit `config/config.yaml` to point to the reference FASTA and its GFF3 annotation:
 
 ```yaml
 reference:
   name: "B73"
   fasta: "/path/to/B73.fa"
   gff: "/path/to/B73.gff3"
+
+targets: "config/targets.tsv"
+outdir: "results"
 ```
 
-The GFF must be uncompressed, and its seqids must match the first word of each FASTA header
-(headers are trimmed to the first word during staging).
+FASTA and GFF3 files may be plain text or gzip-compressed (`.gz`). During staging, the pipeline
+decompresses compressed files and trims each FASTA header to its first whitespace-delimited
+word. The first word of each reference FASTA header must match the corresponding sequence ID
+in the GFF3 file.
 
-**`config/targets.tsv`** — one row per target genome:
+Edit `config/targets.tsv` with one row per target genome:
 
-| column | required | description |
+| Column | Required? | Description |
 |---|---|---|
-| `sample` | yes | Unique target ID (alphanumeric, `_`, `.`, `-`) |
-| `fasta` | yes | Path to the target FASTA (`.fa`/`.fasta`, optionally `.gz`) |
-| `mode` | no | `genoAli` (default) or `proali` |
-| `proali_R` | if proali | Max reference-side alignment coverage (`-R`) |
-| `proali_Q` | if proali | Max target-side alignment coverage (`-Q`) |
-| `extra` | no | Extra AnchorWave flags for this target only |
-| *any other* | no | Metadata (e.g. species, status). Shown in the QC HTML report; not used by the pipeline |
+| `sample` | Yes | Unique target ID; use letters, numbers, `_`, `.`, or `-`. It must differ from the reference name. |
+| `fasta` | Yes | Path to the target FASTA (`.fa`/`.fasta`, optionally `.gz`). |
+| `mode` | No | `genoAli` (default) or `proali`. |
+| `proali_R`, `proali_Q` | For `proali` | Required positive values passed to AnchorWave as `-R` and `-Q`. |
+| `extra` | No | Additional AnchorWave flags for this target. |
+| Other columns | No | Metadata displayed in the QC HTML reports; not used for alignment. |
 
-Example:
+For example:
 
-```
+```text
 sample	fasta	mode	proali_R	proali_Q	extra
 Mo17	/data/Mo17.fa.gz	genoAli
-B97	/data/B97.fa	genoAli
 Sbicolor	/data/Sbicolor_v3.fa	proali	1	2
 ```
 
-#### Using a different config or targets sheet
+### 3. Preview CDS dotplots and choose modes
 
-You don't have to edit `config/config.yaml`. Pass your own config with `--configfile`. It is merged on top of `config/config.yaml`, and any key you leave out keeps its default:
-
-```bash
-snakemake --configfile config/mex-admix.yaml --profile profiles/<cluster>
-```
-
-The targets sheet comes from the `targets:` key. Set it in your config YAML, or override it on the command line (`--config` takes precedence over both YAML files):
+Generate the pre-alignment dotplots before running the long alignments:
 
 ```bash
-snakemake --configfile config/mex-admix.yaml --config targets=config/other.tsv --profile profiles/<cluster>
+snakemake dotplots --cores 8
 ```
 
-> **Note:** give each config its own `outdir` (e.g. `results/mex-admix`) so runs don't overwrite each other's outputs.
-
-### 3. Check the CDS dotplots and choose each target's mode
-
-Before the long AnchorWave runs, map the CDS and plot a dotplot for each target:
+On a cluster, use the appropriate profile instead of `--cores 8`; for example:
 
 ```bash
-snakemake dotplots --profile profiles/<cluster>
+snakemake dotplots --profile profiles/farm
 ```
 
-This runs staging, `gff2seq`, and `minimap2` only. It writes one 300 dpi PNG per target and
-collates them in `results/qc/cds_dotplots.html`, one page you can scroll or filter, with each
-target's metadata from the targets sheet.
-Each point is one reference CDS at its primary hit in the reference (x) and the target (y).
-Use the plots to set `mode` in `config/targets.tsv` (see [Alignment modes](#alignment-modes)).
+Open `results/qc/cds_dotplots.html`. Each point represents a reference CDS at its primary
+minimap2 hit in the reference and target. Use the overall pattern to choose a mode for each
+target:
 
-To group the targets in the report by one column of the targets sheet, set it in the config:
+- Use `genoAli` when the pattern is mostly collinear (a diagonal for each corresponding
+  chromosome/scaffold). Inversions are allowed by default.
+- Use `proali` when there are substantial off-diagonal blocks, translocations, duplicated
+  blocks, or ploidy differences. Set both `proali_R` and `proali_Q` in the targets sheet.
+- If the pattern is unclear, investigate the genome and annotation or try `proali`; the
+  dotplot is a guide, not a substitute for biological review.
+
+The default `cds_dotplot.min_mapq: 0` includes multi-copy hits, which can reveal duplicated
+blocks. Increase it in the config to filter out lower-quality hits. Set
+`qc_report.group_by` to a targets-sheet column name to group samples in the HTML report.
+
+### 4. Run the alignments
+
+First check the jobs Snakemake plans, then run them:
+
+```bash
+snakemake -n --cores 8
+snakemake --cores 8
+```
+
+For a cluster, use its Snakemake profile for both commands, for example:
+
+```bash
+snakemake -n --profile profiles/farm
+snakemake --profile profiles/farm
+```
+
+The shipped profiles are configured for UC Davis Farm and Hive; see
+[Farm](profiles/farm/README.md) and [Hive](profiles/hive/README.md) for account, partition, and
+usage details. If you use another cluster, configure a profile for that cluster.
+
+The full run reuses outputs from the dotplots step when they are up to date. Snakemake skips
+outputs it considers current; use `--rerun-incomplete` to retry jobs whose outputs were left
+incomplete by an interrupted run.
+
+## Using a separate run configuration
+
+To keep the defaults in `config/config.yaml` unchanged, create a second YAML config that
+overrides the reference, target sheet, and output directory. For example:
 
 ```yaml
-qc_report:
-  group_by: "Status"
+reference:
+  name: "B73"
+  fasta: "/data/B73.fa"
+  gff: "/data/B73.gff3"
+
+targets: "config/my-targets.tsv"
+outdir: "results/my-run"
 ```
 
-### 4. Run the pipeline
-
-From the repository root, with the environment activated:
+Pass it to Snakemake with `--configfile`:
 
 ```bash
-snakemake -n                         # dry run to check the DAG
-snakemake --profile profiles/<cluster>
+snakemake -n --configfile config/my-run.yaml --cores 8
+snakemake --configfile config/my-run.yaml --cores 8
 ```
 
-Outputs from the `dotplots` step are reused, not recomputed.
+Snakemake merges this file with the defaults in `config/config.yaml`; keys not specified in
+the additional file keep their default values. You can also override the target sheet from
+the command line with `--config targets=config/other-targets.tsv`. Use a distinct `outdir` for
+each run so separate analyses do not overwrite each other's results. For repeatability, keep
+the run config and targets sheet with records of the input assembly and annotation versions.
 
-Rule logs go to `logs/` in the working directory, not under `results/`.
+## Outputs and resources
 
-### 5. Outputs
+By default, results are written under `results/`. Set `outdir` in the config to change this.
 
-```
+```text
 results/
-├── genomes/            # Staged (decompressed, header-trimmed) FASTAs
-├── reference/
-│   └── cds.fa          # CDS sequences from the reference
-├── sam/                # minimap2 CDS-to-genome SAM files
-├── align/{target}/     # Per-target AnchorWave outputs
-│   ├── {target}.maf        # Whole-genome alignment
-│   ├── {target}.f.maf      # Fragmented alignment
-│   └── {target}.anchors    # Collinear anchors
+├── genomes/                  # Staged FASTA files
+├── reference/                # Staged annotation and extracted CDS
+├── sam/                      # minimap2 CDS-to-genome mappings
+├── align/{target}/
+│   ├── {target}.maf          # Whole-genome alignment
+│   ├── {target}.f.maf        # Fragmented alignment
+│   └── {target}.anchors      # Collinear anchors
 ├── qc/
-│   ├── README.md                   # List of the files in qc/
-│   ├── cds_dotplots.html           # All CDS dotplots, with metadata (from the `dotplots` step)
-│   ├── index.html                  # CDS and anchor dotplots side by side, with metadata
-│   ├── {target}.cds_dotplot.png    # Pre-alignment CDS dotplot (from minimap2), 300 dpi
-│   ├── {target}.anchors.png        # Anchor dotplot, 300 dpi
-│   ├── preview/                    # Low-resolution copies shown on the HTML pages
-│   └── {target}.summary.tsv        # Per-target alignment stats
-└── summary.tsv         # Combined summary table (all targets)
+│   ├── cds_dotplots.html     # Pre-alignment CDS dotplots
+│   ├── index.html            # CDS and AnchorWave anchor dotplots
+│   ├── {target}.summary.tsv  # Per-target statistics
+│   └── ...                   # PNG plots, previews, and a QC file guide
+└── summary.tsv               # Combined statistics for all targets
 ```
 
-The HTML pages link their images by relative path, so `results/qc/` can be copied to a web
-server as a whole, for example:
+The HTML pages use relative links, so the complete `results/qc/` directory can be copied to
+a web server to share the plots. The reports omit the targets-sheet `fasta` column.
+Rule logs are written under `logs/` in the working directory.
 
-```bash
-rsync -a results/qc/ ~/public_html/<project>/
-```
-
-The trailing slash on `results/qc/` copies its contents rather than the folder itself.
-Files deleted from `results/qc/` stay on the web server; add `--delete` only if the
-destination should mirror `results/qc/` exactly. The pages leave out the `fasta` column.
-
-## Resource defaults
-
-Each rule has default `threads`, `mem_mb`, and `runtime` values in `config/config.yaml`
-under `resources:`. Override them there or via `--default-resources` / `--set-resources`
-on the command line. The Slurm account and partition are **not** set by the pipeline; they
-come from the cluster profile.
-
-| Rule | Threads | Memory | Time |
-|---|---|---|---|
-| stage_fasta | 1 | 4 GB | 1 h |
-| stage_gff | 1 | 2 GB | 30 min |
-| faidx | 1 | 2 GB | 30 min |
-| gff2seq | 1 | 8 GB | 1 h |
-| minimap2_cds | 8 | 32 GB | 6 h |
-| anchorwave_align | 16 | 248 GB | 3 days |
-| plot_cds_dotplot | 1 | 8 GB | 30 min |
-| plot_anchors | 1 | 8 GB | 30 min |
-| summarize_maf | 1 | 16 GB | 2 h |
-| aggregate_summary | 1 | 2 GB | 10 min |
-
-For very large genomes (>2 Gb), increase `anchorwave_align` memory and time, keeping within
-your cluster account's per-job limits.
-
-## Cluster profiles
-
-Cluster-specific settings (executor, Slurm account and partition, filesystem latency) live in
-`profiles/<cluster>/`:
-
-- [`profiles/hive/`](profiles/hive/README.md): UC Davis Hive
+Per-rule `threads`, `mem_mb`, and `runtime` defaults are in the `resources:` section of
+`config/config.yaml` (memory is in MB and runtime is in minutes). Adjust these for your data
+and cluster limits in a run-specific config or with Snakemake resource options. In particular,
+large genomes may need more memory and time for `anchorwave_align`. On clusters, the profile
+controls submission settings such as the Slurm account and partition; see the linked profile
+guides before launching a large run.
 
 ## Alignment modes
 
-Choose per target from its CDS dotplot:
+- **`genoAli`** is intended for targets that are collinear with the reference and have the same
+  ploidy. The pipeline passes AnchorWave's `-IV` flag by default to allow inversions; change
+  this with `genoali.inversions`.
+- **`proali`** is intended for more complex rearrangements or differences in ploidy. It
+  requires positive `proali_R` and `proali_Q` values for each target using this mode.
 
-- One diagonal per chromosome pair, with inverted (red) segments at most: `genoAli`.
-- Blocks off the diagonal or on another chromosome (translocations), or repeated blocks
-  (duplications, ploidy differences): `proali`.
-
-When in doubt, use `proali`: it handles rearrangements, while `genoAli` assumes collinearity.
-
-The plot uses primary minimap2 hits only. Set `cds_dotplot.min_mapq` in `config/config.yaml` to
-hide multi-copy genes; the default of 0 keeps them, so duplicated blocks stay visible.
-
-- **genoAli**: for genomes collinear with the reference and the same ploidy.
-  Passes `-IV` by default to allow inversions (configurable via `genoali.inversions`).
-- **proali**: for targets with whole-genome duplication or different ploidy relative to
-  the reference. Requires `proali_R` and `proali_Q` in the sample sheet.
+Both modes accept additional AnchorWave options: use `genoali.extra` or `proali.extra` in the
+config for options shared by that mode, or `extra` in the targets sheet for target-specific
+options.
 
 ## Acknowledgments
 
 Claude Opus 5.5 (Anthropic) was used in the development of the pipeline.
-
