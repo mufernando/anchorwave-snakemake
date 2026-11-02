@@ -25,10 +25,13 @@ def summarize_maf(maf_path, ref_lengths):
     identical_bp = 0
     ref_gap_bp = 0
     target_gap_bp = 0
+    # One byte per reference base, set once it is aligned to a target base.
+    # proali with -R > 1 can align a reference base in several blocks; count it once.
+    covered = {}
 
     def flush(block_lines):
         nonlocal ref_aligned_bp, identical_bp, ref_gap_bp, target_gap_bp
-        stats = _process_block(block_lines)
+        stats = _process_block(block_lines, ref_lengths, covered)
         ref_aligned_bp += stats["ref_aligned"]
         identical_bp += stats["identical"]
         ref_gap_bp += stats["ref_gaps"]
@@ -52,14 +55,16 @@ def summarize_maf(maf_path, ref_lengths):
             flush(block_lines)
 
     ref_total = sum(ref_lengths.values())
+    ref_covered_bp = sum(c.count(1) for c in covered.values())
     identity = identical_bp / ref_aligned_bp if ref_aligned_bp > 0 else 0.0
-    coverage = ref_aligned_bp / ref_total if ref_total > 0 else 0.0
+    coverage = ref_covered_bp / ref_total if ref_total > 0 else 0.0
 
     return {
         "alignment_blocks": n_blocks,
         "ref_aligned_bp": ref_aligned_bp,
         "identical_bp": identical_bp,
         "identity": round(identity, 6),
+        "ref_covered_bp": ref_covered_bp,
         "ref_total_bp": ref_total,
         "ref_coverage": round(coverage, 6),
         "ref_gap_bp": ref_gap_bp,
@@ -67,32 +72,47 @@ def summarize_maf(maf_path, ref_lengths):
     }
 
 
-def _process_block(s_lines):
-    """Process the s-lines of one alignment block."""
+def _process_block(s_lines, ref_lengths, covered):
+    """Process the s-lines of one alignment block, marking covered reference bases."""
     stats = {"ref_aligned": 0, "identical": 0, "ref_gaps": 0, "target_gaps": 0}
     if len(s_lines) < 2:
         return stats
 
     # Parse the two s-lines (reference, then target)
-    ref_parts = s_lines[0].split()
-    tgt_parts = s_lines[1].split()
-    ref_seq = ref_parts[6]
-    tgt_seq = tgt_parts[6]
+    _, chrom, start, _, strand, src_size, ref_seq = s_lines[0].split()
+    tgt_seq = s_lines[1].split()[6]
 
+    if chrom not in ref_lengths:
+        raise ValueError(f"MAF reference sequence '{chrom}' is not in the reference .fai")
+    if chrom not in covered:
+        covered[chrom] = bytearray(ref_lengths[chrom])
+    cov = covered[chrom]
+
+    # Forward-strand position of the next reference base
+    if strand == "+":
+        pos, step = int(start), 1
+    else:
+        pos, step = int(src_size) - 1 - int(start), -1
+
+    aligned = identical = ref_gaps = target_gaps = 0
     for r, t in zip(ref_seq, tgt_seq):
-        r_gap = r == "-"
-        t_gap = t == "-"
-        if r_gap and t_gap:
+        if r == "-":
+            if t != "-":
+                ref_gaps += 1
             continue
-        elif r_gap:
-            stats["ref_gaps"] += 1
-        elif t_gap:
-            stats["target_gaps"] += 1
+        if t == "-":
+            target_gaps += 1
         else:
-            stats["ref_aligned"] += 1
+            aligned += 1
+            cov[pos] = 1
             if r.upper() == t.upper():
-                stats["identical"] += 1
+                identical += 1
+        pos += step
 
+    stats["ref_aligned"] = aligned
+    stats["identical"] = identical
+    stats["ref_gaps"] = ref_gaps
+    stats["target_gaps"] = target_gaps
     return stats
 
 
@@ -104,6 +124,7 @@ def main():
 
     # Extract target name from the wildcard
     target = snakemake.wildcards.target
+    mode = snakemake.params["mode"]
 
     with open(log_path, "w") as log_fh:
         sys.stderr = log_fh
@@ -112,15 +133,16 @@ def main():
             stats = summarize_maf(maf_path, ref_lengths)
 
             with open(out_path, "w") as out:
-                cols = ["sample", "alignment_blocks", "ref_aligned_bp",
-                        "identical_bp", "identity", "ref_total_bp",
-                        "ref_coverage", "ref_gap_bp", "target_gap_bp"]
+                cols = ["sample", "mode", "alignment_blocks", "ref_aligned_bp",
+                        "identical_bp", "identity", "ref_covered_bp",
+                        "ref_total_bp", "ref_coverage", "ref_gap_bp",
+                        "target_gap_bp"]
                 out.write("\t".join(cols) + "\n")
-                vals = [target, stats["alignment_blocks"],
+                vals = [target, mode, stats["alignment_blocks"],
                         stats["ref_aligned_bp"], stats["identical_bp"],
-                        stats["identity"], stats["ref_total_bp"],
-                        stats["ref_coverage"], stats["ref_gap_bp"],
-                        stats["target_gap_bp"]]
+                        stats["identity"], stats["ref_covered_bp"],
+                        stats["ref_total_bp"], stats["ref_coverage"],
+                        stats["ref_gap_bp"], stats["target_gap_bp"]]
                 out.write("\t".join(str(v) for v in vals) + "\n")
 
             print(f"Done: {target}", file=log_fh)

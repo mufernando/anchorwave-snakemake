@@ -13,8 +13,10 @@ properties:
     default: "genoAli"
   proali_R:
     type: string
+    pattern: "^[1-9][0-9]*$"
   proali_Q:
     type: string
+    pattern: "^[1-9][0-9]*$"
   extra:
     type: string
     default: ""

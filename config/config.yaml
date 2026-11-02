@@ -2,7 +2,7 @@
 reference:
   name: "B73"                              # used as the {genome} wildcard for the reference
   fasta: "/path/to/reference.fa"           # .fa/.fasta, optionally .gz
-  gff: "/path/to/reference.gff3"           # GFF3 annotation of the reference
+  gff: "/path/to/reference.gff3"           # GFF3 annotation of the reference, optionally .gz
 
 # ── Targets ─────────────────────────────────────────────────────────────────
 targets: "config/targets.tsv"              # sample sheet; see README for column definitions
@@ -19,6 +19,11 @@ minimap2:
 # Raise min_mapq to hide multi-copy genes; keep 0 to see duplicated blocks.
 cds_dotplot:
   min_mapq: 0
+
+# ── QC report (results/qc/*.html) ───────────────────────────────────────────
+# Group targets in the report by one column of the targets sheet; "" for no grouping.
+qc_report:
+  group_by: ""
 
 # ── AnchorWave gff2seq extra flags ──────────────────────────────────────────
 gff2seq:
@@ -40,36 +45,40 @@ resources:
   stage_fasta:
     threads: 1
     mem_mb: 4096
+    runtime: 120
+  stage_gff:
+    threads: 1
+    mem_mb: 2048
     runtime: 60
   faidx:
     threads: 1
     mem_mb: 2048
-    runtime: 30
+    runtime: 60
   gff2seq:
     threads: 1
     mem_mb: 8192
-    runtime: 60
+    runtime: 120
   minimap2_cds:
     threads: 8
     mem_mb: 32768
-    runtime: 360
+    runtime: 720
   anchorwave_align:
     threads: 16
     mem_mb: 253952       # 248 GB — sized for ~3 Gb genomes (e.g. Capsicum)
-    runtime: 4320        # 3 days
+    runtime: 8640        # 6 days
   plot_cds_dotplot:
     threads: 1
     mem_mb: 8192
-    runtime: 30
+    runtime: 60
   plot_anchors:
     threads: 1
     mem_mb: 8192
-    runtime: 30
+    runtime: 60
   summarize_maf:
     threads: 1
-    mem_mb: 8192
-    runtime: 120         # pure-Python pass over multi-Gb MAFs
+    mem_mb: 16384        # holds one byte per reference base, plus whole-chromosome MAF lines
+    runtime: 240         # pure-Python pass over multi-Gb MAFs
   aggregate_summary:
     threads: 1
     mem_mb: 2048
-    runtime: 10
+    runtime: 20

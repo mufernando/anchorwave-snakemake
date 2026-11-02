@@ -23,6 +23,7 @@ def load_targets(sheet_path):
     df["extra"] = df["extra"].fillna("")
     df = df.set_index("sample", drop=False)
     # Sanity checks
+    assert not df.empty, f"Targets sheet '{sheet_path}' has no rows"
     assert df.index.is_unique, "Duplicate sample names in targets sheet"
     assert REF_NAME not in df.index, (
         f"Target sample '{REF_NAME}' has the same name as the reference"
@@ -55,6 +56,11 @@ def genome_source_fasta(wildcards):
 def staged_fasta(genome):
     """Path to the staged (decompressed, header-trimmed) FASTA."""
     return f"{OUTDIR}/genomes/{genome}.fa"
+
+
+def staged_gff():
+    """Path to the staged (decompressed) reference GFF3."""
+    return f"{OUTDIR}/reference/{REF_NAME}.gff3"
 
 
 def staged_fai(genome):

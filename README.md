@@ -52,6 +52,7 @@ The GFF must be uncompressed, and its seqids must match the first word of each F
 | `proali_R` | if proali | Max reference-side alignment coverage (`-R`) |
 | `proali_Q` | if proali | Max target-side alignment coverage (`-Q`) |
 | `extra` | no | Extra AnchorWave flags for this target only |
+| *any other* | no | Metadata (e.g. species, status). Shown in the QC HTML report; not used by the pipeline |
 
 Example:
 
@@ -62,17 +63,42 @@ B97	/data/B97.fa	genoAli
 Sbicolor	/data/Sbicolor_v3.fa	proali	1	2
 ```
 
+#### Using a different config or targets sheet
+
+You don't have to edit `config/config.yaml`. Pass your own config with `--configfile`. It is merged on top of `config/config.yaml`, and any key you leave out keeps its default:
+
+```bash
+snakemake --configfile config/mex-admix.yaml --profile profiles/<cluster>
+```
+
+The targets sheet comes from the `targets:` key. Set it in your config YAML, or override it on the command line (`--config` takes precedence over both YAML files):
+
+```bash
+snakemake --configfile config/mex-admix.yaml --config targets=config/other.tsv --profile profiles/<cluster>
+```
+
+> **Note:** give each config its own `outdir` (e.g. `results/mex-admix`) so runs don't overwrite each other's outputs.
+
 ### 3. Check the CDS dotplots and choose each target's mode
 
-Before the long AnchorWave runs, map the CDS and plot one dotplot per target:
+Before the long AnchorWave runs, map the CDS and plot a dotplot for each target:
 
 ```bash
 snakemake dotplots --profile profiles/<cluster>
 ```
 
-This runs staging, `gff2seq`, and `minimap2` only, and writes `results/qc/{target}.cds_dotplot.png`.
+This runs staging, `gff2seq`, and `minimap2` only. It writes one 300 dpi PNG per target and
+collates them in `results/qc/cds_dotplots.html`, one page you can scroll or filter, with each
+target's metadata from the targets sheet.
 Each point is one reference CDS at its primary hit in the reference (x) and the target (y).
 Use the plots to set `mode` in `config/targets.tsv` (see [Alignment modes](#alignment-modes)).
+
+To group the targets in the report by one column of the targets sheet, set it in the config:
+
+```yaml
+qc_report:
+  group_by: "Status"
+```
 
 ### 4. Run the pipeline
 
@@ -100,11 +126,26 @@ results/
 │   ├── {target}.f.maf      # Fragmented alignment
 │   └── {target}.anchors    # Collinear anchors
 ├── qc/
-│   ├── {target}.cds_dotplot.png    # Pre-alignment CDS dotplot (from minimap2)
-│   ├── {target}.anchors.png    # Anchor dotplot
-│   └── {target}.summary.tsv   # Per-target alignment stats
+│   ├── README.md                   # List of the files in qc/
+│   ├── cds_dotplots.html           # All CDS dotplots, with metadata (from the `dotplots` step)
+│   ├── index.html                  # CDS and anchor dotplots side by side, with metadata
+│   ├── {target}.cds_dotplot.png    # Pre-alignment CDS dotplot (from minimap2), 300 dpi
+│   ├── {target}.anchors.png        # Anchor dotplot, 300 dpi
+│   ├── preview/                    # Low-resolution copies shown on the HTML pages
+│   └── {target}.summary.tsv        # Per-target alignment stats
 └── summary.tsv         # Combined summary table (all targets)
 ```
+
+The HTML pages link their images by relative path, so `results/qc/` can be copied to a web
+server as a whole, for example:
+
+```bash
+rsync -a results/qc/ ~/public_html/<project>/
+```
+
+The trailing slash on `results/qc/` copies its contents rather than the folder itself.
+Files deleted from `results/qc/` stay on the web server; add `--delete` only if the
+destination should mirror `results/qc/` exactly. The pages leave out the `fasta` column.
 
 ## Resource defaults
 
@@ -116,13 +157,14 @@ come from the cluster profile.
 | Rule | Threads | Memory | Time |
 |---|---|---|---|
 | stage_fasta | 1 | 4 GB | 1 h |
+| stage_gff | 1 | 2 GB | 30 min |
 | faidx | 1 | 2 GB | 30 min |
 | gff2seq | 1 | 8 GB | 1 h |
 | minimap2_cds | 8 | 32 GB | 6 h |
 | anchorwave_align | 16 | 248 GB | 3 days |
 | plot_cds_dotplot | 1 | 8 GB | 30 min |
 | plot_anchors | 1 | 8 GB | 30 min |
-| summarize_maf | 1 | 8 GB | 2 h |
+| summarize_maf | 1 | 16 GB | 2 h |
 | aggregate_summary | 1 | 2 GB | 10 min |
 
 For very large genomes (>2 Gb), increase `anchorwave_align` memory and time, keeping within

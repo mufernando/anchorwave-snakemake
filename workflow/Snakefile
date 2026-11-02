@@ -24,15 +24,10 @@ rule all:
             f"{OUTDIR}/align/{{target}}/{{target}}.f.maf",
             target=TARGET_NAMES,
         ),
-        # CDS and anchor dotplots
-        expand(
-            f"{OUTDIR}/qc/{{target}}.cds_dotplot.png",
-            target=TARGET_NAMES,
-        ),
-        expand(
-            f"{OUTDIR}/qc/{{target}}.anchors.png",
-            target=TARGET_NAMES,
-        ),
+        # QC dotplots collated into HTML pages
+        f"{OUTDIR}/qc/cds_dotplots.html",
+        f"{OUTDIR}/qc/index.html",
+        f"{OUTDIR}/qc/README.md",
         # Combined summary table
         f"{OUTDIR}/summary.tsv",
     default_target: True
@@ -41,7 +36,5 @@ rule all:
 rule dotplots:
     """Stop after minimap2 and plot CDS dotplots, to choose each target's mode before AnchorWave."""
     input:
-        expand(
-            f"{OUTDIR}/qc/{{target}}.cds_dotplot.png",
-            target=TARGET_NAMES,
-        ),
+        f"{OUTDIR}/qc/cds_dotplots.html",
+        f"{OUTDIR}/qc/README.md",

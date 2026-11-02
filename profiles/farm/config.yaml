@@ -1,0 +1,11 @@
+# Snakemake profile for the UC Davis Farm cluster (Slurm), following the RILAB "Using Farm" wiki.
+# Usage: snakemake --profile profiles/farm
+executor: slurm
+jobs: 10
+# Quobyte is a network filesystem: outputs written on compute nodes can take a while to appear
+latency-wait: 60
+default-resources:
+  # jrigrp on `high`: lab-owned nodes, not preempted. The lab shares 608 CPUs / 1,372 GB;
+  # check usage and post in #farm_issues before using more than 100 CPUs or 256 GB.
+  - slurm_account=jrigrp
+  - slurm_partition=high

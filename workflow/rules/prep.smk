@@ -45,12 +45,38 @@ rule faidx:
         "samtools faidx {input.fasta} &> {log}"
 
 
+# ── Stage GFF: decompress .gz reference annotation ─────────────────────────
+rule stage_gff:
+    """Decompress the reference GFF3 (if .gz); AnchorWave only reads plain text."""
+    input:
+        gff=REF_GFF,
+    output:
+        gff=staged_gff(),
+    log:
+        "logs/stage_gff.log",
+    threads: res("stage_gff", "threads", 1)
+    resources:
+        mem_mb=res("stage_gff", "mem_mb", 2048),
+        runtime=res("stage_gff", "runtime", 30),
+    shell:
+        r"""
+        (
+        if [[ "{input.gff}" == *.gz ]]; then
+            gunzip -c {input.gff}
+        else
+            cat {input.gff}
+        fi \
+        > {output.gff}
+        ) &> {log}
+        """
+
+
 # ── AnchorWave gff2seq: extract reference CDS sequences ────────────────────
 rule gff2seq:
     """Extract CDS sequences from the reference using the GFF annotation."""
     input:
         fasta=staged_fasta(REF_NAME),
-        gff=REF_GFF,
+        gff=staged_gff(),
     output:
         cds=f"{OUTDIR}/reference/cds.fa",
     log:

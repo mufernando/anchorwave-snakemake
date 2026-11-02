@@ -24,7 +24,7 @@ rule anchorwave_align:
     input:
         ref_fasta=staged_fasta(REF_NAME),
         target_fasta=lambda wc: staged_fasta(wc.target),
-        gff=REF_GFF,
+        gff=staged_gff(),
         cds=f"{OUTDIR}/reference/cds.fa",
         ref_sam=f"{OUTDIR}/sam/{REF_NAME}.sam",
         target_sam=lambda wc: f"{OUTDIR}/sam/{wc.target}.sam",
