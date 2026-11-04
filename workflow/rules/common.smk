@@ -43,6 +43,8 @@ TARGETS = load_targets(config["targets"])
 TARGET_NAMES = list(TARGETS.index)
 # All genome names: reference + targets (used for stage_fasta, faidx, minimap2)
 ALL_GENOMES = [REF_NAME] + TARGET_NAMES
+# genoAli aligns only same-named sequences, so these targets get a chromosome-name check
+GENOALI_TARGETS = list(TARGETS.index[TARGETS["mode"] == "genoAli"])
 
 
 # ── Input helpers ───────────────────────────────────────────────────────────
@@ -66,6 +68,13 @@ def staged_gff():
 def staged_fai(genome):
     """Path to the .fai index of a staged FASTA."""
     return f"{OUTDIR}/genomes/{genome}.fa.fai"
+
+
+def chrom_check(target):
+    """Chromosome-name check result for a genoAli target; [] for proali (no check)."""
+    if target in GENOALI_TARGETS:
+        return f"{OUTDIR}/genomes/{target}.chroms.tsv"
+    return []
 
 
 # ── Resource helper ─────────────────────────────────────────────────────────

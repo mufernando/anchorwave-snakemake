@@ -28,6 +28,7 @@ rule anchorwave_align:
         cds=f"{OUTDIR}/reference/cds.fa",
         ref_sam=f"{OUTDIR}/sam/{REF_NAME}.sam",
         target_sam=lambda wc: f"{OUTDIR}/sam/{wc.target}.sam",
+        chroms=lambda wc: chrom_check(wc.target),
     output:
         maf=f"{OUTDIR}/align/{{target}}/{{target}}.maf",
         fmaf=f"{OUTDIR}/align/{{target}}/{{target}}.f.maf",

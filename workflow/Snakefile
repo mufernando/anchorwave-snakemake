@@ -38,3 +38,5 @@ rule dotplots:
     input:
         f"{OUTDIR}/qc/cds_dotplots.html",
         f"{OUTDIR}/qc/README.md",
+        # Chromosome-name check of every genoAli target, before choosing modes
+        expand(f"{OUTDIR}/genomes/{{target}}.chroms.tsv", target=GENOALI_TARGETS),

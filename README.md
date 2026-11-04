@@ -66,6 +66,19 @@ Mo17	/data/Mo17.fa.gz	genoAli
 Sbicolor	/data/Sbicolor_v3.fa	proali	1	2
 ```
 
+AnchorWave `genoAli` aligns only sequences with the same name in the reference and target, so
+each `genoAli` target's chromosomes must be named like the reference's (for example `chr1`, not
+`Chr1` or `Mo17.chr1`). After staging, the pipeline checks each `genoAli` target against the
+reference and records the result in `results/genomes/{target}.chroms.tsv`:
+
+- **Error** if the target shares no sequence names with the reference; that target's alignment
+  does not run.
+- **Warning** if the target lacks a reference sequence at least as long as the shortest one it
+  shares (for example, a missing or misnamed chromosome); the run continues without it.
+
+Messages appear in the Snakemake output and in `logs/check_chroms/{target}.log`. `proali` does
+not require matching names and is not checked.
+
 ### 3. Preview CDS dotplots and choose modes
 
 Generate the pre-alignment dotplots before running the long alignments:
@@ -153,7 +166,7 @@ By default, results are written under `results/`. Set `outdir` in the config to 
 
 ```text
 results/
-├── genomes/                  # Staged FASTA files
+├── genomes/                  # Staged FASTA files and chromosome-name checks
 ├── reference/                # Staged annotation and extracted CDS
 ├── sam/                      # minimap2 CDS-to-genome mappings
 ├── align/{target}/

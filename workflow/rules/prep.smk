@@ -45,6 +45,29 @@ rule faidx:
         "samtools faidx {input.fasta} &> {log}"
 
 
+# ── Chromosome-name check: genoAli targets must use the reference's names ──
+localrules:
+    check_chroms,
+
+
+rule check_chroms:
+    """Fail if a genoAli target shares no sequence names with the reference; warn on gaps."""
+    input:
+        ref_fai=staged_fai(REF_NAME),
+        target_fai=staged_fai("{target}"),
+    output:
+        tsv=f"{OUTDIR}/genomes/{{target}}.chroms.tsv",
+    log:
+        f"logs/check_chroms/{{target}}.log",
+    params:
+        target="{target}",
+        reference=REF_NAME,
+    wildcard_constraints:
+        target="|".join(GENOALI_TARGETS),
+    script:
+        "../scripts/check_chroms.py"
+
+
 # ── Stage GFF: decompress .gz reference annotation ─────────────────────────
 rule stage_gff:
     """Decompress the reference GFF3 (if .gz); AnchorWave only reads plain text."""
