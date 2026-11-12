@@ -4,6 +4,10 @@ executor: slurm
 jobs: 10
 # Quobyte is a network filesystem: outputs written on compute nodes can take a while to appear
 latency-wait: 60
+# On NODE_FAIL, Slurm requeues the job; with this set, Snakemake waits for it instead of failing it
+slurm-requeue: true
+# Resubmit a failed job once, for other transient failures
+retries: 1
 default-resources:
   # jrigrp on `high`: lab-owned nodes, not preempted. The lab shares 608 CPUs / 1,372 GB;
   # check usage and post in #farm_issues before using more than 100 CPUs or 256 GB.
