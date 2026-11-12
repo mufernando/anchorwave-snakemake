@@ -30,9 +30,9 @@ rule anchorwave_align:
         target_sam=lambda wc: f"{OUTDIR}/sam/{wc.target}.sam",
         chroms=lambda wc: chrom_check(wc.target),
     output:
-        maf=f"{OUTDIR}/align/{{target}}/{{target}}.maf",
-        fmaf=f"{OUTDIR}/align/{{target}}/{{target}}.f.maf",
-        anchors=f"{OUTDIR}/align/{{target}}/{{target}}.anchors",
+        maf=f"{OUTDIR}/align/{{target}}.maf",
+        fmaf=f"{OUTDIR}/align/{{target}}.f.maf",
+        anchors=f"{OUTDIR}/align/{{target}}.anchors",
     log:
         log=f"logs/anchorwave_align/{{target}}.log",
         time=f"logs/anchorwave_align/{{target}}.time",

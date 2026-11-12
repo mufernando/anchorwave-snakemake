@@ -169,7 +169,7 @@ results/
 ├── genomes/                  # Staged FASTA files and chromosome-name checks
 ├── reference/                # Staged annotation and extracted CDS
 ├── sam/                      # minimap2 CDS-to-genome mappings
-├── align/{target}/
+├── align/
 │   ├── {target}.maf          # Whole-genome alignment
 │   ├── {target}.f.maf        # Fragmented alignment
 │   └── {target}.anchors      # Collinear anchors
