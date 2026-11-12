@@ -71,7 +71,7 @@ rule plot_cds_dotplot:
 rule plot_anchors:
     """Dotplot of collinear anchors for one target vs the reference."""
     input:
-        anchors=f"{OUTDIR}/align/{{target}}/{{target}}.anchors",
+        anchors=f"{OUTDIR}/align/{{target}}.anchors",
     output:
         plot=f"{OUTDIR}/qc/{{target}}.anchors.png",
         preview=f"{OUTDIR}/qc/preview/{{target}}.anchors.png",
@@ -165,7 +165,7 @@ rule qc_report:
 rule summarize_maf:
     """Compute alignment statistics from a MAF file."""
     input:
-        maf=f"{OUTDIR}/align/{{target}}/{{target}}.maf",
+        maf=f"{OUTDIR}/align/{{target}}.maf",
         ref_fai=staged_fai(REF_NAME),
     output:
         tsv=f"{OUTDIR}/qc/{{target}}.summary.tsv",
@@ -203,6 +203,6 @@ rule aggregate_summary:
 
         frames = []
         for f in input.tsvs:
-            frames.append(pd.read_csv(f, sep="\t"))
+            frames.append(pd.read_csv(f, sep="\t", dtype={"sample": str}))
         df = pd.concat(frames, ignore_index=True)
         df.to_csv(output.tsv, sep="\t", index=False)
