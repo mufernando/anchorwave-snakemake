@@ -21,7 +21,7 @@ rule all:
             target=TARGET_NAMES,
         ),
         expand(
-            f"{OUTDIR}/align/{{target}}.f.maf",
+            f"{OUTDIR}/align/fragmented/{{target}}.f.maf",
             target=TARGET_NAMES,
         ),
         # QC dotplots collated into HTML pages

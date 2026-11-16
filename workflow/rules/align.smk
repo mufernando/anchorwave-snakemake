@@ -31,7 +31,7 @@ rule anchorwave_align:
         chroms=lambda wc: chrom_check(wc.target),
     output:
         maf=f"{OUTDIR}/align/{{target}}.maf",
-        fmaf=f"{OUTDIR}/align/{{target}}.f.maf",
+        fmaf=f"{OUTDIR}/align/fragmented/{{target}}.f.maf",
         anchors=f"{OUTDIR}/align/{{target}}.anchors",
     log:
         log=f"logs/anchorwave_align/{{target}}.log",

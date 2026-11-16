@@ -171,8 +171,9 @@ results/
 ├── sam/                      # minimap2 CDS-to-genome mappings
 ├── align/
 │   ├── {target}.maf          # Whole-genome alignment
-│   ├── {target}.f.maf        # Fragmented alignment
-│   └── {target}.anchors      # Collinear anchors
+│   ├── {target}.anchors      # Collinear anchors
+│   └── fragmented/
+│       └── {target}.f.maf    # Fragmented alignment
 ├── qc/
 │   ├── cds_dotplots.html     # Pre-alignment CDS dotplots
 │   ├── index.html            # CDS and AnchorWave anchor dotplots
